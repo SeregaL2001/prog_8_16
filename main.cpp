@@ -1,21 +1,16 @@
 #include <cmath>
+#include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 
 #include "linalg.hpp"
+// #include "profiler.h"
 
-constexpr int N = 25;
-// #define N 25
+constexpr int N = 20;
 
-double f1(double x, double y) 
-{ 
-  return std::pow(M_PI, 2) * std::cos(M_PI * (x - y)); 
-}
-
-double f2(double x, double y) 
-{
-   return std::pow(M_PI, 2) * std::cos(M_PI * (x - y)); 
-}
+double f1(double x, double y) { return std::pow(M_PI, 2) * (std::cos(M_PI * (x - y)) - 2 * std::cos(M_PI * (x + y))); }
+double f2(double x, double y) { return std::pow(M_PI, 2) * (std::cos(M_PI * (x - y)) - 2 * std::cos(M_PI * (x + y))); }
 //~~~~~~~~~~~~~~~~~~~~~~~~
 
 constexpr double h = 1.0 / (N - 1);
@@ -41,12 +36,14 @@ std::vector<double> f_k(int k) {
         for (int j = 0; j < N; ++j) out[pos(i, j)] = f2(i, j);
       break;
     }
-    default: throw std::runtime_error("Unexpected index of f");
+    default:
+      throw std::runtime_error("Unexpected index of f");
   }
   return out;
 }
 
 Matrix B() {
+  // LOG_DURATION("Matrix B creation");
   Matrix out(N * N);
   for (int i = 0; i < N; ++i)
     for (int j = 0; j < N; ++j) {
@@ -54,15 +51,18 @@ Matrix B() {
       if (is_bound(i, j)) {
         out.at(p, p) = 1.0;
       } else {
-        out.at(p, p) = 2.0;
+        out.at(p, p) = 6.0;
         out.at(pos(i, j + 1), p) = -1.0;
         out.at(pos(i, j - 1), p) = -1.0;
+        out.at(pos(i + 1, j), p) = -2.0;
+        out.at(pos(i - 1, j), p) = -2.0;
       }
     }
   return out;
 }
 
 Matrix C() {
+  // LOG_DURATION("Matrix C creation");
   Matrix out(N * N);
   for (int i = 0; i < N; ++i)
     for (int j = 0; j < N; ++j) {
@@ -70,7 +70,9 @@ Matrix C() {
       if (is_bound(i, j)) {
         out.at(p, p) = 1.0;
       } else {
-        out.at(p, p) = 2.0;
+        out.at(p, p) = 6.0;
+        out.at(pos(i, j + 1), p) = -2.0;
+        out.at(pos(i, j - 1), p) = -2.0;
         out.at(pos(i + 1, j), p) = -1.0;
         out.at(pos(i - 1, j), p) = -1.0;
       }
@@ -79,6 +81,7 @@ Matrix C() {
 }
 
 Matrix A() {
+  // LOG_DURATION("Matrix A creation");
   Matrix out(N * N);
   for (int i = 0; i < N; ++i)
     for (int j = 0; j < N; ++j) {
@@ -95,6 +98,7 @@ Matrix A() {
   return out;
 }
 Matrix P() {
+  // LOG_DURATION("Matrix P creation");
   Matrix out(N * N);
   for (int i = 0; i < N; ++i)
     for (int j = 0; j < N; ++j) {
@@ -113,29 +117,25 @@ Matrix P() {
 }
 
 std::vector<double> operator+(std::vector<double>&& a, const std::vector<double>& b) {
-  if (a.size() != b.size())
-    throw std::runtime_error("incorrect vector size");
+  if (a.size() != b.size()) throw std::runtime_error("incorrect vector size");
   for (int i = 0; i < a.size(); ++i) a[i] += b[i];
   return a;
 }
 
 std::vector<double>& operator+=(std::vector<double>& a, const std::vector<double>& b) {
-  if (a.size() != b.size())
-    throw std::runtime_error("incorrect vector size");
+  if (a.size() != b.size()) throw std::runtime_error("incorrect vector size");
   for (int i = 0; i < a.size(); ++i) a[i] += b[i];
   return a;
 }
 
 std::vector<double> operator-(std::vector<double>&& a, const std::vector<double>& b) {
-  if (a.size() != b.size())
-    throw std::runtime_error("incorrect vector size");
+  if (a.size() != b.size()) throw std::runtime_error("incorrect vector size");
   for (int i = 0; i < a.size(); ++i) a[i] -= b[i];
   return a;
 }
 
 std::vector<double>& operator-=(std::vector<double>& a, const std::vector<double>& b) {
-  if (a.size() != b.size())
-    throw std::runtime_error("incorrect vector size");
+  if (a.size() != b.size()) throw std::runtime_error("incorrect vector size");
   for (int i = 0; i < a.size(); ++i) a[i] -= b[i];
   return a;
 }
@@ -145,45 +145,51 @@ std::vector<double> operator*(std::vector<double>&& a, double k) {
   return a;
 }
 
-double norm(const std::vector<double>& a);
-
-int main() {
-  std::vector<double> u(N * N), v(N * N);
-  Matrix _P(P()), PA(_P.dot(A())), PB(_P.dot(B())), PC(_P.dot(C()));
-  std::vector<double> Pf1(_P.dot(f_k(1))), Pf2(_P.dot(f_k(2)));
-
-  double tau = 1.25; // взяли подбором 
-  // при N = 20 - 0.75
-  // при N = 25 - 1.25 
-  // при N = 50 - 
-  double u_priv = 1, v_priv = 1;
-  for (int counter = 1;; ++counter) {
-    auto du = (PA.dot(v) + PB.dot(u) - Pf1) * tau;
-    auto dv = (PA.dot(u) + PC.dot(v) - Pf2) * tau;
-    double nu = norm(du);
-    double nv = norm(dv);
-    double error;
-    if (counter % 100 == 0)
-      // std::cout << "Iteration: " << counter << " |du|: " << nu << " |dv|: " << nv << " " << error << std::endl;
-    if (nu + nv < 1e-10) {
-      std::cout << "Iterations: " << counter << " |du|: " << nu << " |dv|: " << nv << " eror_i/error_i-1 = "<< error << std::endl;
-      break;
-    }
-    u -= du;
-    v -= dv;
-    error = u_priv/nu;
-    u_priv = nu;
-    // std::cout << u_priv << std::endl;
-    // std::cout << error << std::endl;
-  }
-  
-
-  std::ofstream("u1.csv") << Matrix(std::move(u));
-  std::ofstream("u2.csv") << Matrix(std::move(v));
-}
-
 double norm(const std::vector<double>& a) {
   double sum = 0;
   for (int i = 0; i < a.size(); ++i) sum += std::pow(a[i], 2);
   return std::sqrt(sum);
+  ;
+}
+
+int main() {
+  std::vector<double> u(N * N), v(N * N);
+  Matrix _P(P());
+  Matrix PA([&_P] { 
+    // LOG_DURATION("Matrix PA creation"); 
+    return _P.dot(A()); }());
+  Matrix PB([&_P] { 
+    // LOG_DURATION("Matrix PB creation"); 
+  return _P.dot(B()); }());
+  Matrix PC([&_P] { 
+    // LOG_DURATION("Matrix PC creation"); 
+    return _P.dot(C()); }());
+  std::vector<double> Pf1(_P.dot(f_k(1))), Pf2(_P.dot(f_k(2)));
+
+  double tau = 0.5;
+  int counter;
+  {
+    // LOG_DURATION("Solution finding");
+    for (counter = 1;; ++counter) {
+      auto du = (PA.dot(v) + PB.dot(u) - Pf1) * tau;
+      auto dv = (PA.dot(u) + PC.dot(v) - Pf2) * tau;
+      double nu = norm(du);
+      double nv = norm(dv);
+      // if (counter % 5 == 0) std::cout << "Iteration: " << counter << " |du|: " << nu << " |dv|: " << nv << std::endl;
+      if (nu + nv < 1e-10) break;
+      u -= du;
+      v -= dv;
+    }
+  }
+
+  auto n1 = norm(A().dot(u) + B().dot(v) - f_k(1));
+  auto n2 = norm(A().dot(v) + C().dot(v) - f_k(2));
+  auto n_all = std::max(n1,n2);
+
+  bool has_header = std::filesystem::exists("table.csv");
+  auto table = std::ofstream("table.csv", std::ios_base::app);
+  if (!has_header) table << "n,iters,\\tau,|error_max|" << std::endl;
+  table << N << ',' << counter << ',' << tau << ',' << std::setprecision(8) << std::fixed << n_all << std::endl;
+  std::ofstream("u1.csv") << Matrix(std::move(u));
+  std::ofstream("u2.csv") << Matrix(std::move(v));
 }
