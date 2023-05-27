@@ -1,218 +1,239 @@
-#include <cmath>
-#include <filesystem>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
+#include <iomanip> 
+#include <math.h>
+#include <vector>
+#include <unistd.h>
+#include <string>
+#include <fstream>
+#include <armadillo>
 
-#include "linalg.hpp"
-// #include "profiler.h"
+#define EPS 1e-8
 
-constexpr int N = 10;
+using namespace arma;
+// g++ -std=c++17 -larmadillo main.cpp
 
-double f1(double x, double y) 
-{
-   return std::pow(M_PI, 2) * (std::cos(M_PI * (x - y)) - 2 * std::cos(M_PI * (x + y))); 
+double u1(double x, double y) {
+    return x * x * y * y * (x - 1) * (y - 1); 
 }
 
-double f2(double x, double y) 
-{ 
-  return std::pow(M_PI, 2) * (std::cos(M_PI * (x - y)) - 2 * std::cos(M_PI * (x + y))); 
-}
-//~~~~~~~~~~~~~~~~~~~~~~~~
-
-constexpr double h = 1.0 / (N - 1);
-constexpr double h2 = h * h;
-
-bool is_bound(int i, int j) 
-{
-   return i == 0 || i == N - 1 || j == 0 || j == N - 1; 
+double u2(double x, double y) {
+    return (x - 1) * (y - 1) * sin(x) * sin(y);
 }
 
-double f1(int i, int j) 
-{ 
-  return is_bound(i, j) ? 0.0 : h2 * f1(i * h, j * h); 
+double u1_dxdx(double x, double y) {
+    return y * y * (y - 1) * (6 * x - 2); 
 }
 
-double f2(int i, int j) 
-{ 
-  return is_bound(i, j) ? 0.0 : h2 * f2(i * h, j * h); 
+double u1_dxdy(double x, double y) {
+    return (3 * x * x - 2 * x) * (3 * y * y - 2 * y); 
 }
 
-int pos(int i, int j) 
-{ 
-  return i + N * j; 
+double u1_dydy(double x, double y) {
+    return x * x * (x - 1) * (6 * y - 2); 
 }
 
-std::vector<double> f_k(int k) 
-{
-  std::vector<double> out(N * N);
-  switch (k) {
-    case 1: {
-      for (int i = 0; i < N; ++i)
-        for (int j = 0; j < N; ++j) out[pos(i, j)] = f1(i, j);
-      break;
+double u2_dxdx(double x, double y) {
+    return (y - 1) * sin(y) * (2 * cos(x) - (x - 1) * sin(x));
+}
+
+double u2_dxdy(double x, double y) {
+    return (sin(y) + (y - 1) * cos(y)) * (sin(x) + (x - 1) * cos(x));
+}
+
+double u2_dydy(double x, double y) {
+    return (x - 1) * sin(x) * (2 * cos(y) - (y - 1) * sin(y));
+}
+
+double f1(double x, double y) {
+    return -2 * u1_dxdx(x, y) - u1_dydy(x, y) - u2_dxdy(x, y);
+}
+
+double f2(double x, double y) {
+    return -2 * u2_dydy(x, y) - u2_dxdx(x, y) - u1_dxdy(x, y);
+}
+
+double get_a_ij(unsigned int i, unsigned int j, unsigned int N, double h) {
+    unsigned int i_f, j_f, i_u, j_u;
+    
+    // Первая половина заполняет f_1, вторая f_2
+    // Если j в первой половине, то умножается на u_1, иначе на u_2
+    if (i <= (N - 1) * (N - 1)) {
+        i_f = (i - 1) / (N - 1) + 1;
+        j_f = (i - 1) % (N - 1) + 1;
+        
+        if (j <= (N - 1) * (N - 1)) {
+            i_u = (j - 1) / (N - 1) + 1;
+            j_u = (j - 1) % (N - 1) + 1;
+            
+            if ((i_f == i_u + 1 || i_f == i_u - 1) && j_f == j_u)
+                return -2.0 / (h * h);
+            if (i_f == i_u && j_f == j_u)
+                return 6.0 / (h * h);
+            if ((j_f == j_u + 1 || j_f == j_u - 1) && i_f == i_u)
+                return -1.0 / (h * h);
+        }
+        else {
+            j -= (N - 1) * (N - 1);
+            i_u = (j - 1) / (N - 1) + 1;
+            j_u = (j - 1) % (N - 1) + 1;
+            
+            if (i_f == i_u + 1 && j_f == j_u + 1)
+                return -1.0 / (4 * h * h);
+            if (i_f == i_u - 1 && j_f == j_u + 1)
+                return 1.0 / (4 * h * h);
+            if (i_f == i_u + 1 && j_f == j_u - 1)
+                return 1.0 / (4 * h * h);
+            if (i_f == i_u - 1 && j_f == j_u - 1)
+                return -1.0 / (4 * h * h);
+        }
+    } 
+    else {
+        i -= (N - 1) * (N - 1);
+        i_f = (i - 1) / (N - 1) + 1;
+        j_f = (i - 1) % (N - 1) + 1;
+        
+        if (j <= (N - 1) * (N - 1)) {
+            i_u = (j - 1) / (N - 1) + 1;
+            j_u = (j - 1) % (N - 1) + 1;
+            
+            if (i_f == i_u + 1 && j_f == j_u + 1)
+                return -1.0 / (4 * h * h);
+            if (i_f == i_u - 1 && j_f == j_u + 1)
+                return 1.0 / (4 * h * h);
+            if (i_f == i_u + 1 && j_f == j_u - 1)
+                return 1.0 / (4 * h * h);
+            if (i_f == i_u - 1 && j_f == j_u - 1)
+                return -1.0 / (4 * h * h);
+        }
+        else {
+            j -= (N - 1) * (N - 1);
+            i_u = (j - 1) / (N - 1) + 1;
+            j_u = (j - 1) % (N - 1) + 1;
+        
+            if ((i_f == i_u + 1 || i_f == i_u - 1) && j_f == j_u)
+                return -1.0 / (h * h);
+            if (i_f == i_u && j_f == j_u)
+                return 6.0 / (h * h);
+            if ((j_f == j_u + 1 || j_f == j_u - 1) && i_f == i_u)
+                return -2.0 / (h * h);
+        }
     }
-    case 2: {
-      for (int i = 0; i < N; ++i)
-        for (int j = 0; j < N; ++j) out[pos(i, j)] = f2(i, j);
-      break;
+    
+    return 0;
+}
+
+double get_f_i(unsigned int i, unsigned int N, std::vector<double> &x, std::vector<double> &y) {
+    if (i <= (N - 1) * (N - 1)) {
+        return f1(x[(i - 1) / (N - 1) + 1], y[(i - 1) % (N - 1) + 1]);  
+    } 
+    else {
+        i -= (N - 1) * (N - 1);
+        return f2(x[(i - 1) / (N - 1) + 1], y[(i - 1) % (N - 1) + 1]);    
     }
-    default:
-      throw std::runtime_error("Unexpected index of f");
-  }
-  return out;
 }
 
-Matrix B() 
-{
-  Matrix out(N * N);
-  for (int i = 0; i < N; ++i)
-    for (int j = 0; j < N; ++j) {
-      int p = pos(i, j);
-      if (is_bound(i, j)) {
-        out.at(p, p) = 1.0;
-      } else {
-        out.at(p, p) = 6.0;
-        out.at(pos(i, j + 1), p) = -1.0;
-        out.at(pos(i, j - 1), p) = -1.0;
-        out.at(pos(i + 1, j), p) = -2.0;
-        out.at(pos(i - 1, j), p) = -2.0;
-      }
+
+// Тут используется arma 
+Col<double> richardson(mat &A, Col<double> &f) {
+    Col<double> x(size(f), fill::zeros);    
+    mat D  = diagmat(A);
+    mat sumLR = A - D;
+    mat invD = inv(diagmat(D));
+    
+    while(true) {
+        Col<double> new_x(size(f), fill::zeros);
+        new_x = invD * (f - sumLR * x);
+        auto nrm = norm(new_x - x); 
+        if (nrm < EPS)
+            break;
+        x = new_x;
     }
-  return out;
+
+    return x;
 }
 
-Matrix C() 
+int main(int argc, char *argv[]) 
 {
-  Matrix out(N * N);
-  for (int i = 0; i < N; ++i)
-    for (int j = 0; j < N; ++j) {
-      int p = pos(i, j);
-      if (is_bound(i, j)) {
-        out.at(p, p) = 1.0;
-      } else {
-        out.at(p, p) = 6.0;
-        out.at(pos(i, j + 1), p) = -2.0;
-        out.at(pos(i, j - 1), p) = -2.0;
-        out.at(pos(i + 1, j), p) = -1.0;
-        out.at(pos(i - 1, j), p) = -1.0;
-      }
+    std::ofstream output;
+    int N;
+    double h;
+    std::vector<double> x;
+    std::vector<double> y;
+    std::vector<double> u1_arr;
+    std::vector<double> u2_arr;
+
+
+    std::cout << "Введите число точек: " << std::endl;
+    std::cin >> N;
+    // Парсинг параметров командной строки
+    int res = 0;
+    while ((res = getopt(argc, argv, "N:")) != -1){
+        switch (res) {
+            case 'N': 
+                N = static_cast<unsigned int>(std::stoi(optarg)); 
+                break;
+            default:
+                break;
+        };
+    };
+    
+    std::cout << std::setprecision(12);
+    
+    std::cout << "N = " << N << "\n";
+    
+    h = 1.0 / N;
+        
+    for (unsigned int i = 0; i <= N; i++) {
+        x.push_back(static_cast<double>(i) / N);
+        y.push_back(static_cast<double>(i) / N);
     }
-  return out;
-}
-
-Matrix A() 
-{
-  Matrix out(N * N);
-  for (int i = 0; i < N; ++i)
-    for (int j = 0; j < N; ++j) {
-      int p = pos(i, j);
-      if (is_bound(i, j)) {
-        out.at(p, p) = 1.0;
-      } else {
-        out.at(pos(i + 1, j + 1), p) = -0.25;
-        out.at(pos(i - 1, j - 1), p) = -0.25;
-        out.at(pos(i + 1, j - 1), p) = 0.25;
-        out.at(pos(i - 1, j + 1), p) = 0.25;
-      }
+    
+    for (unsigned int i = 1; i < N; i++) {
+        for (unsigned int j = 1; j < N; j++) {
+            u1_arr.push_back(u1(x[i], y[j]));
+            u2_arr.push_back(u2(x[i], y[j]));
+        }
     }
-  return out;
-}
-
-Matrix P() 
-{
-  Matrix out(N * N);
-  for (int i = 0; i < N; ++i)
-    for (int j = 0; j < N; ++j) {
-      int p = pos(i, j);
-      if (is_bound(i, j)) {
-        out.at(p, p) = 1.0;
-      } else {
-        out.at(p, p) = 4.0;
-        out.at(pos(i, j + 1), p) = -1.0;
-        out.at(pos(i, j - 1), p) = -1.0;
-        out.at(pos(i + 1, j), p) = -1.0;
-        out.at(pos(i - 1, j), p) = -1.0;
-      }
+        
+    
+    // Заполняем матрицу A
+    unsigned int m_size = 2 * (N - 1) * (N - 1);
+    mat A(m_size, m_size, fill::zeros);
+    for (unsigned int i = 0; i < m_size; i++) {
+        for (unsigned int j = 0; j < m_size; j++) {
+            // A начинает нумирацию с нуля, функция get_a_ij ожидает нумирацию с 1
+            A(i, j) = get_a_ij(i + 1, j + 1, N, h);
+        }
     }
-  return out.inv();
-}
-
-std::vector<double> operator+(std::vector<double>&& a, const std::vector<double>& b) 
-{
-  if (a.size() != b.size()) throw std::runtime_error("incorrect vector size");
-  for (int i = 0; i < a.size(); ++i) a[i] += b[i];
-  return a;
-}
-
-std::vector<double>& operator+=(std::vector<double>& a, const std::vector<double>& b) 
-{
-  if (a.size() != b.size()) throw std::runtime_error("incorrect vector size");
-  for (int i = 0; i < a.size(); ++i) a[i] += b[i];
-  return a;
-}
-
-std::vector<double> operator-(std::vector<double>&& a, const std::vector<double>& b) 
-{
-  if (a.size() != b.size()) throw std::runtime_error("incorrect vector size");
-  for (int i = 0; i < a.size(); ++i) a[i] -= b[i];
-  return a;
-}
-
-std::vector<double>& operator-=(std::vector<double>& a, const std::vector<double>& b) 
-{
-  if (a.size() != b.size()) throw std::runtime_error("incorrect vector size");
-  for (int i = 0; i < a.size(); ++i) a[i] -= b[i];
-  return a;
-}
-
-std::vector<double> operator*(std::vector<double>&& a, double k) 
-{
-  for (int i = 0; i < a.size(); ++i) a[i] *= k;
-  return a;
-}
-
-double norm(const std::vector<double>& a) 
-{
-  double sum = 0;
-  for (int i = 0; i < a.size(); ++i) sum += std::pow(a[i], 2);
-  return std::sqrt(sum);
-}
-
-int main() 
-{
-  std::vector<double> u(N * N), v(N * N);
-  Matrix _P(P());
-  Matrix PA([&_P] { return _P.dot(A()); }());
-  Matrix PB([&_P] { return _P.dot(B()); }());
-  Matrix PC([&_P] { return _P.dot(C()); }());
-
-  std::vector<double> Pf1(_P.dot(f_k(1))), Pf2(_P.dot(f_k(2)));
-
-  double tau = 0.7;
-  int counter;
-  {
-    for (counter = 1;; ++counter) {
-      auto du = (PA.dot(v) + PB.dot(u) - Pf1) * tau;
-      auto dv = (PA.dot(u) + PC.dot(v) - Pf2) * tau;
-      double nu = norm(du);
-      double nv = norm(dv);
-      if (counter % 5 == 0) std::cout << "Iteration: " << counter << " |du|: " << nu << " |dv|: " << nv << std::endl;
-      if (nu + nv < 1e-10) break;
-      u -= du;
-      v -= dv;
+                
+    // Заполняем правую часть
+    Col<double> f(m_size, fill::zeros);
+    for (unsigned int i = 0; i < m_size; i++) {
+        // f начинает нумирацию с нуля, функция get_f_i ожидает нумирацию с 1
+        f(i) = get_f_i(i + 1, N, x, y);
     }
-  }
-
-  auto n1 = norm(A().dot(u) + B().dot(v) - f_k(1));
-  auto n2 = norm(A().dot(v) + C().dot(v) - f_k(2));
-  auto n_all = std::max(n1,n2);
-
-  bool has_header = std::filesystem::exists("table.csv");
-  auto table = std::ofstream("table.csv", std::ios_base::app);
-  if (!has_header) table << "n,iters,\\tau, |error_1|, |error_2|" << std::endl;
-  table << N << ',' << counter << ',' << tau << ',' << std::setprecision(8) << std::fixed << n1 << ',' << n2  << std::endl;
-  std::ofstream("u1.csv") << Matrix(std::move(u));
-  std::ofstream("u2.csv") << Matrix(std::move(v));
-  return 0;
+        
+    Col<double> u_richardson = richardson(A, f);    
+    Col<double> u_original(m_size, fill::zeros);
+    for (unsigned int i = 0; i < 2 * (N - 1) * (N - 1); i++) {
+        if (i < (N - 1) * (N - 1)) {
+            u_original(i) = u1_arr[i];
+        }
+        else {
+            u_original(i) = u2_arr[i - (N - 1) * (N - 1)];
+        }
+    }
+        
+    double n = norm(u_original - u_richardson);
+    std::cout << n << std::endl;
+        
+    output.open("./cppoutput/norms.txt", std::ios::app);
+    output << n << " ";
+    output.close();
+    
+    output.open("./cppoutput/N.txt", std::ios::app);
+    output << N << " ";
+    output.close();
+    
+    return 0;
 }
