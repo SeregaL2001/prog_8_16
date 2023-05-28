@@ -8,7 +8,9 @@
 #include <armadillo>
 
 #define EPS 1e-8
-
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 using namespace arma;
 // g++ -std=c++17 -larmadillo main.cpp
 
@@ -52,8 +54,9 @@ double f2(double x, double y) {
     return -2 * u2_dydy(x, y) - u2_dxdx(x, y) - u1_dxdy(x, y);
 }
 
-double get_a_ij(unsigned int i, unsigned int j, unsigned int N, double h) {
-    unsigned int i_f, j_f, i_u, j_u;
+
+double get_a_ij(int i, int j, int N, double h) {
+    int i_f, j_f, i_u, j_u;
     
     // Первая половина заполняет f_1, вторая f_2
     // Если j в первой половине, то умножается на u_1, иначе на u_2
@@ -122,7 +125,7 @@ double get_a_ij(unsigned int i, unsigned int j, unsigned int N, double h) {
     return 0;
 }
 
-double get_f_i(unsigned int i, unsigned int N, std::vector<double> &x, std::vector<double> &y) {
+double get_f_i(int i, int N, std::vector<double> &x, std::vector<double> &y) {
     if (i <= (N - 1) * (N - 1)) {
         return f1(x[(i - 1) / (N - 1) + 1], y[(i - 1) % (N - 1) + 1]);  
     } 
@@ -134,15 +137,17 @@ double get_f_i(unsigned int i, unsigned int N, std::vector<double> &x, std::vect
 
 
 // Тут используется arma 
+//Реализовывание метода Ричардсона, одношагового 
 Col<double> richardson(mat &A, Col<double> &f) {
     Col<double> x(size(f), fill::zeros);    
     mat D  = diagmat(A);
     mat sumLR = A - D;
     mat invD = inv(diagmat(D));
-    
+    double tau = 0.7;
+    Col<double> new_x(size(f), fill::zeros);
     while(true) {
-        Col<double> new_x(size(f), fill::zeros);
-        new_x = invD * (f - sumLR * x);
+        // Col<double> new_x(size(f), fill::zeros);
+        new_x = (1.0 - tau)*x + tau * invD * (f - sumLR * x);
         auto nrm = norm(new_x - x); 
         if (nrm < EPS)
             break;
@@ -165,31 +170,32 @@ int main(int argc, char *argv[])
 
     std::cout << "Введите число точек: " << std::endl;
     std::cin >> N;
-    // Парсинг параметров командной строки
-    int res = 0;
-    while ((res = getopt(argc, argv, "N:")) != -1){
-        switch (res) {
-            case 'N': 
-                N = static_cast<unsigned int>(std::stoi(optarg)); 
-                break;
-            default:
-                break;
-        };
-    };
+
+    // // Парсинг параметров командной строки
+    // int res = 0;
+    // while ((res = getopt(argc, argv, "N:")) != -1){
+    //     switch (res) {
+    //         case 'N': 
+    //             N = static_cast<unsigned int>(std::stoi(optarg)); 
+    //             break;
+    //         default:
+    //             break;
+    //     };
+    // };
     
     std::cout << std::setprecision(12);
     
-    std::cout << "N = " << N << "\n";
+    // std::cout << "N = " << N << "\n";
     
     h = 1.0 / N;
         
-    for (unsigned int i = 0; i <= N; i++) {
+    for (int i = 0; i <= N; i++) {
         x.push_back(static_cast<double>(i) / N);
         y.push_back(static_cast<double>(i) / N);
     }
     
-    for (unsigned int i = 1; i < N; i++) {
-        for (unsigned int j = 1; j < N; j++) {
+    for (int i = 1; i < N; i++) {
+        for (int j = 1; j < N; j++) {
             u1_arr.push_back(u1(x[i], y[j]));
             u2_arr.push_back(u2(x[i], y[j]));
         }
@@ -197,10 +203,10 @@ int main(int argc, char *argv[])
         
     
     // Заполняем матрицу A
-    unsigned int m_size = 2 * (N - 1) * (N - 1);
+    int m_size = 2 * (N - 1) * (N - 1);
     mat A(m_size, m_size, fill::zeros);
-    for (unsigned int i = 0; i < m_size; i++) {
-        for (unsigned int j = 0; j < m_size; j++) {
+    for (int i = 0; i < m_size; i++) {
+        for (int j = 0; j < m_size; j++) {
             // A начинает нумирацию с нуля, функция get_a_ij ожидает нумирацию с 1
             A(i, j) = get_a_ij(i + 1, j + 1, N, h);
         }
@@ -208,14 +214,14 @@ int main(int argc, char *argv[])
                 
     // Заполняем правую часть
     Col<double> f(m_size, fill::zeros);
-    for (unsigned int i = 0; i < m_size; i++) {
+    for (int i = 0; i < m_size; i++) {
         // f начинает нумирацию с нуля, функция get_f_i ожидает нумирацию с 1
         f(i) = get_f_i(i + 1, N, x, y);
     }
         
     Col<double> u_richardson = richardson(A, f);    
     Col<double> u_original(m_size, fill::zeros);
-    for (unsigned int i = 0; i < 2 * (N - 1) * (N - 1); i++) {
+    for (int i = 0; i < 2 * (N - 1) * (N - 1); i++) {
         if (i < (N - 1) * (N - 1)) {
             u_original(i) = u1_arr[i];
         }
@@ -225,15 +231,15 @@ int main(int argc, char *argv[])
     }
         
     double n = norm(u_original - u_richardson);
-    std::cout << n << std::endl;
+    std::cout << "погрешность вычислений = " << n << std::endl;
         
-    output.open("./cppoutput/norms.txt", std::ios::app);
-    output << n << " ";
-    output.close();
+    // output.open("./cppoutput/norms.txt", std::ios::app);
+    // output << n << " ";
+    // output.close();
     
-    output.open("./cppoutput/N.txt", std::ios::app);
-    output << N << " ";
-    output.close();
+    // output.open("./cppoutput/N.txt", std::ios::app);
+    // output << N << " ";
+    // output.close();
     
     return 0;
 }
