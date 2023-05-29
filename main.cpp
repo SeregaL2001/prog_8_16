@@ -1,17 +1,17 @@
 #include <iostream>
 #include <iomanip> 
-#include <math.h>
+#include <cmath>
 #include <vector>
 #include <unistd.h>
 #include <string>
-#include <fstream>
+// #include <fstream>
 #include <armadillo>
 
 #define EPS 1e-8
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-using namespace arma;
+// using namespace arma;
 // g++ -std=c++17 -larmadillo main.cpp
 
 double u1(double x, double y) {
@@ -19,7 +19,7 @@ double u1(double x, double y) {
 }
 
 double u2(double x, double y) {
-    return (x - 1) * (y - 1) * sin(x) * sin(y);
+    return (x - 1) * (y - 1) * std::sin(x) *std::sin(y);
 }
 
 double u1_dxdx(double x, double y) {
@@ -35,15 +35,15 @@ double u1_dydy(double x, double y) {
 }
 
 double u2_dxdx(double x, double y) {
-    return (y - 1) * sin(y) * (2 * cos(x) - (x - 1) * sin(x));
+    return (y - 1) * std::sin(y) * (2 * std::cos(x) - (x - 1) * std::sin(x));
 }
 
 double u2_dxdy(double x, double y) {
-    return (sin(y) + (y - 1) * cos(y)) * (sin(x) + (x - 1) * cos(x));
+    return (std::sin(y) + (y - 1) * std::cos(y)) * (std::sin(x) + (x - 1) * std::cos(x));
 }
 
 double u2_dydy(double x, double y) {
-    return (x - 1) * sin(x) * (2 * cos(y) - (y - 1) * sin(y));
+    return (x - 1) * std::sin(x) * (2 * std::cos(y) - (y - 1) * std::sin(y));
 }
 
 double f1(double x, double y) {
@@ -54,7 +54,23 @@ double f2(double x, double y) {
     return -2 * u2_dydy(x, y) - u2_dxdx(x, y) - u1_dxdy(x, y);
 }
 
+//------------------------------------------------------------
+// double u1(double x, double y) {
+//     return std::sin(M_PI*x)*std::sin(M_PI*y); 
+// }
 
+// double u2(double x, double y) {
+//     return std::sin(M_PI*x)*std::sin(M_PI*y);
+// }
+
+// double f1(double x, double y) {
+//     return 3*std::pow(M_PI,2)*std::sin(M_PI*x)*std::sin(M_PI*y) - std::pow(M_PI,2)*std::cos(M_PI*x)*std::cos(M_PI*y);
+// }
+
+// double f2(double x, double y) {
+//     return 3*std::pow(M_PI,2)*std::sin(M_PI*x)*std::sin(M_PI*y) - std::pow(M_PI,2)*std::cos(M_PI*x)*std::cos(M_PI*y);
+// }
+//------------------------------------------------------------
 double get_a_ij(int i, int j, int N, double h) {
     int i_f, j_f, i_u, j_u;
     
@@ -135,23 +151,24 @@ double get_f_i(int i, int N, std::vector<double> &x, std::vector<double> &y) {
     }
 }
 
-
-// Тут используется arma 
 //Реализовывание метода Ричардсона, одношагового 
-Col<double> richardson(mat &A, Col<double> &f) {
+arma::Col<double> richardson(arma::mat &A, arma::Col<double> &f, int *count) {
+    using namespace arma;
     Col<double> x(size(f), fill::zeros);    
     mat D  = diagmat(A);
     mat sumLR = A - D;
     mat invD = inv(diagmat(D));
-    double tau = 0.7;
+    double tau = 0.97;
     Col<double> new_x(size(f), fill::zeros);
+    *count = 0;
     while(true) {
-        // Col<double> new_x(size(f), fill::zeros);
         new_x = (1.0 - tau)*x + tau * invD * (f - sumLR * x);
-        auto nrm = norm(new_x - x); 
+        double nrm = norm(new_x - x); 
+
         if (nrm < EPS)
             break;
         x = new_x;
+        *count+=1;
     }
 
     return x;
@@ -159,8 +176,10 @@ Col<double> richardson(mat &A, Col<double> &f) {
 
 int main(int argc, char *argv[]) 
 {
+    using namespace arma;
     std::ofstream output;
     int N;
+    int count = 0;
     double h;
     std::vector<double> x;
     std::vector<double> y;
@@ -170,22 +189,7 @@ int main(int argc, char *argv[])
 
     std::cout << "Введите число точек: " << std::endl;
     std::cin >> N;
-
-    // // Парсинг параметров командной строки
-    // int res = 0;
-    // while ((res = getopt(argc, argv, "N:")) != -1){
-    //     switch (res) {
-    //         case 'N': 
-    //             N = static_cast<unsigned int>(std::stoi(optarg)); 
-    //             break;
-    //         default:
-    //             break;
-    //     };
-    // };
-    
-    std::cout << std::setprecision(12);
-    
-    // std::cout << "N = " << N << "\n";
+    // std::cout << std::setprecision(12);
     
     h = 1.0 / N;
         
@@ -219,7 +223,7 @@ int main(int argc, char *argv[])
         f(i) = get_f_i(i + 1, N, x, y);
     }
         
-    Col<double> u_richardson = richardson(A, f);    
+    Col<double> u_richardson = richardson(A, f, &count);    
     Col<double> u_original(m_size, fill::zeros);
     for (int i = 0; i < 2 * (N - 1) * (N - 1); i++) {
         if (i < (N - 1) * (N - 1)) {
@@ -230,16 +234,8 @@ int main(int argc, char *argv[])
         }
     }
         
-    double n = norm(u_original - u_richardson);
-    std::cout << "погрешность вычислений = " << n << std::endl;
-        
-    // output.open("./cppoutput/norms.txt", std::ios::app);
-    // output << n << " ";
-    // output.close();
-    
-    // output.open("./cppoutput/N.txt", std::ios::app);
-    // output << N << " ";
-    // output.close();
+    double nrm = norm(u_original - u_richardson);
+    std::cout << "погрешность вычислений = " << nrm << " за "<< count << " итераций" << std::endl;
     
     return 0;
 }
