@@ -109,7 +109,7 @@ double get_a_ij(int i, int j, int N, double h) {
             i_u = (j - 1) / (N - 1) + 1;
             j_u = (j - 1) % (N - 1) + 1;
         
-            if ((i_f == i_u + 1 || i_f == i_u - 1) && j_f == j_u)
+           if ((i_f == i_u + 1 || i_f == i_u - 1) && j_f == j_u)
                 return -1.0 / (h * h); // коэф при u2_i,j; u2_i-1,j
             if (i_f == i_u && j_f == j_u)
                 return 6.0 / (h * h); // коэф при u2_i,j

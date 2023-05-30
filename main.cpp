@@ -10,15 +10,14 @@
 
 #include "utils.hpp"
 // using namespace arma;
-// g++ -std=c++17 -larmadillo main.cpp
-// g++ -std=c++17 -larmadillo main.cpp utils.cppp
+// g++ -std=c++17 -larmadillo main.cpp utils.cpp
 
 double u1(double x, double y) {
-    return x * x * y * y * (x - 1) * (y - 1); 
+    return std::pow(x,2) *  std::pow(y,2) * (x - 1) * (y - 1); 
 }
 
 double u2(double x, double y) {
-    return (x - 1) * (y - 1) * std::sin(x) *std::sin(y);
+    return std::sin(x) * std::sin(y) * (x - 1) * (y - 1);
 }
 
 // Реализовывание метода Ричардсона, одношагового 
@@ -51,13 +50,12 @@ int main(int argc, char *argv[])
     std::cout << "Введите число точек: " << std::endl;
     std::cin >> N;
     double h = 1.0 / N;
-    // std::cout << std::setprecision(12);
 
     std::vector<double> x; 
     std::vector<double> y; 
     for (int i = 0; i <= N; i++) {
-        x.push_back(static_cast<double>(i) / N);
-        y.push_back(static_cast<double>(i) / N);
+        x.push_back(static_cast<double> (i) / N);
+        y.push_back(static_cast<double> (i) / N);
     }
 
     std::vector<double> u1_arr;
@@ -69,28 +67,32 @@ int main(int argc, char *argv[])
         }
     } 
     
-    // Заполняем матрицу A
-    int m_size = 2 * (N - 1) * (N - 1);
-    mat A(m_size, m_size, fill::zeros);
-    for (int i = 0; i < m_size; i++) {
-        for (int j = 0; j < m_size; j++) {
+    // Заполняем матрицу A элементами a_ij
+    int f_size = 2 * (N - 1) * (N - 1);
+    mat A(f_size, f_size, fill::zeros);
+    for (int i = 0; i < f_size; i++) {
+        for (int j = 0; j < f_size; j++) {
             // A начинает нумирацию с нуля, функция get_a_ij ожидает нумирацию с 1 
             // => сдвиг по индексу в цикле  
             A(i, j) = get_a_ij(i + 1, j + 1, N, h);
         }
     }
+    
+    // A.print("A = ");
                 
-    // Заполняем правую часть
-    Col<double> f(m_size, fill::zeros);
-    for (int i = 0; i < m_size; i++) {
+    // Заполняем правую часть с помощью fk
+    Col<double> f(f_size, fill::zeros);
+    for (int i = 0; i < f_size; i++) {
         // f начинает нумирацию с нуля, функция get_f_i ожидает нумирацию с 1 
         // => сдвиг по индексу в цикле
-        f(i) = get_f_i(i + 1, N, x, y);
+        f(i) = get_f_k(i + 1, N, x, y);
     }
-        
+    // f.print("f = ");
+    // std:: cout << size(f) << std::endl;
+
     int count = 0;
     Col<double> u_richardson = Richardson(A, f, count);    
-    Col<double> u_original(m_size, fill::zeros);
+    Col<double> u_original(f_size, fill::zeros);
     for (int i = 0; i < 2 * (N - 1) * (N - 1); i++) {
         if (i < (N - 1) * (N - 1)) {
             u_original(i) = u1_arr[i];
