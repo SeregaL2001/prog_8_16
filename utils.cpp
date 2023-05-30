@@ -1,15 +1,15 @@
 #include "utils.hpp"
 
 double u1_dxdx(double x, double y) {
-    return std::pow(y,2) * (y - 1) * (6 * x - 2); 
+    return y * (y - 1) * 2; 
 }
 
 double u1_dxdy(double x, double y) {
-    return (3 * std::pow(x,2) - 2 * x) * (3 * std::pow(y,2) - 2 * y); 
+    return (2 * std::pow(x,1) - 1) * (2 * std::pow(y,1) - 1); 
 }
 
 double u1_dydy(double x, double y) {
-    return std::pow(x,2) * (x - 1) * (6 * y - 2); 
+    return x * (x - 1) * 2; 
 }
 
 double u2_dxdx(double x, double y) {
@@ -31,24 +31,6 @@ double f1(double x, double y) {
 double f2(double x, double y) {
     return -2 * u2_dydy(x, y) - u2_dxdx(x, y) - u1_dxdy(x, y);
 }
-
-//------------------------------------------------------------
-// double u1(double x, double y) {
-//     return std::sin(M_PI*x)*std::sin(M_PI*y); 
-// }
-
-// double u2(double x, double y) {
-//     return std::sin(M_PI*x)*std::sin(M_PI*y);
-// }
-
-// double f1(double x, double y) {
-//     return 3*std::pow(M_PI,2)*std::sin(M_PI*x)*std::sin(M_PI*y) - std::pow(M_PI,2)*std::cos(M_PI*x)*std::cos(M_PI*y);
-// }
-
-// double f2(double x, double y) {
-//     return 3*std::pow(M_PI,2)*std::sin(M_PI*x)*std::sin(M_PI*y) - std::pow(M_PI,2)*std::cos(M_PI*x)*std::cos(M_PI*y);
-// }
-//------------------------------------------------------------
 
 // извлечение нужного элемента матрицы A
 double get_a_ij(int i, int j, int N, double h) {

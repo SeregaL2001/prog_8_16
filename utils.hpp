@@ -4,9 +4,6 @@
 #include <armadillo>
 
 #define EPS 1e-8
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 double u1_dxdx(double x, double y);
 double u1_dxdy(double x, double y);

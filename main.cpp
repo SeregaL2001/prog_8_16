@@ -4,23 +4,19 @@
 #include <armadillo>
 
 #define EPS 1e-8
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 #include "utils.hpp"
 // using namespace arma;
 // g++ -std=c++17 -larmadillo main.cpp utils.cpp
 
 double u1(double x, double y) {
-    return std::pow(x,2) *  std::pow(y,2) * (x - 1) * (y - 1); 
+    return x * y * (x - 1) * (y - 1); 
 }
 
 double u2(double x, double y) {
     return std::sin(x) * std::sin(y) * (x - 1) * (y - 1);
 }
 
-// Реализовывание метода Ричардсона, одношагового 
+// Реализовывание метода Ричардсона, одношагового
 arma::Col<double> Richardson(arma::mat &A, arma::Col<double> &f, int &count) {
     using namespace arma;
     Col<double> x(size(f), fill::zeros);    
@@ -72,7 +68,7 @@ int main(int argc, char *argv[])
     mat A(f_size, f_size, fill::zeros);
     for (int i = 0; i < f_size; i++) {
         for (int j = 0; j < f_size; j++) {
-            // A начинает нумирацию с нуля, функция get_a_ij ожидает нумирацию с 1 
+            // A начинает нумирацию с нуля, функция get_a_ij начинает нумирацию с 1 
             // => сдвиг по индексу в цикле  
             A(i, j) = get_a_ij(i + 1, j + 1, N, h);
         }
@@ -80,10 +76,10 @@ int main(int argc, char *argv[])
     
     // A.print("A = ");
                 
-    // Заполняем правую часть с помощью fk
+    // Заполняем f с помощью fk
     Col<double> f(f_size, fill::zeros);
     for (int i = 0; i < f_size; i++) {
-        // f начинает нумирацию с нуля, функция get_f_i ожидает нумирацию с 1 
+        // f начинает нумирацию с нуля, функция get_f_i начинает нумирацию с 1 
         // => сдвиг по индексу в цикле
         f(i) = get_f_k(i + 1, N, x, y);
     }
@@ -103,7 +99,7 @@ int main(int argc, char *argv[])
     }
         
     double nrm = norm(u_original - u_richardson);
-    std::cout << "погрешность вычислений = " << nrm << " за "<< count << " итераций" << std::endl;
+    std::cout << "погрешность вычислений = " << nrm << std::endl;
     
     return 0;
 }
