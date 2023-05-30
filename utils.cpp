@@ -1,15 +1,15 @@
 #include "utils.hpp"
 
 double u1_dxdx(double x, double y) {
-    return y * y * (y - 1) * (6 * x - 2); 
+    return std::pow(y,2) * (y - 1) * (6 * x - 2); 
 }
 
 double u1_dxdy(double x, double y) {
-    return (3 * x * x - 2 * x) * (3 * y * y - 2 * y); 
+    return (3 * std::pow(x,2) - 2 * x) * (3 * std::pow(y,2) - 2 * y); 
 }
 
 double u1_dydy(double x, double y) {
-    return x * x * (x - 1) * (6 * y - 2); 
+    return std::pow(x,2) * (x - 1) * (6 * y - 2); 
 }
 
 double u2_dxdx(double x, double y) {
@@ -50,76 +50,79 @@ double f2(double x, double y) {
 // }
 //------------------------------------------------------------
 
+// извлечение нужного элемента матрицы A
 double get_a_ij(int i, int j, int N, double h) {
     int i_f, j_f, i_u, j_u; 
-    // Первая половина заполняет f_1, вторая f_2
-    // Если j в первой половине, то умножается на u_1, иначе на u_2
+    // Первая половина заполняет коэф соответствующие f1, вторая f2
     if (i <= (N - 1) * (N - 1)) {
-        i_f = (i - 1) / (N - 1) + 1;
-        j_f = (i - 1) % (N - 1) + 1;
+        i_f = (i - 1) / (N - 1) + 1; // берем целую часть от деления 
+        j_f = (i - 1) % (N - 1) + 1; // берем остаток от деления 
         
+        // Если j в первой половине, то умножается на u1,
         if (j <= (N - 1) * (N - 1)) {
             i_u = (j - 1) / (N - 1) + 1;
             j_u = (j - 1) % (N - 1) + 1;
             
-            if ((i_f == i_u + 1 || i_f == i_u - 1) && j_f == j_u)
-                return -2.0 / (h * h);
+            if ((i_f == i_u + 1 || i_f == i_u - 1) && j_f == j_u) 
+                return -2.0 / (h * h); // коэф при u1_i+1,j; u1_i-1,j
             if (i_f == i_u && j_f == j_u)
-                return 6.0 / (h * h);
+                return 6.0 / (h * h);  // коэф при u1_i,j
             if ((j_f == j_u + 1 || j_f == j_u - 1) && i_f == i_u)
-                return -1.0 / (h * h);
+                return -1.0 / (h * h);  // коэф при u1_i,j+1; u1_i,j-1
         }
-        else {
+        else { // иначе на u2
             j -= (N - 1) * (N - 1);
             i_u = (j - 1) / (N - 1) + 1;
             j_u = (j - 1) % (N - 1) + 1;
             
             if (i_f == i_u + 1 && j_f == j_u + 1)
-                return -1.0 / (4 * h * h);
+                return -1.0 / (4 * h * h);  // коэф при u2_i+1,j+1 
             if (i_f == i_u - 1 && j_f == j_u + 1)
-                return 1.0 / (4 * h * h);
+                return 1.0 / (4 * h * h); // коэф при u2_i-1,j+1
             if (i_f == i_u + 1 && j_f == j_u - 1)
-                return 1.0 / (4 * h * h);
+                return 1.0 / (4 * h * h); // коэф при u2_i+1,j-1
             if (i_f == i_u - 1 && j_f == j_u - 1)
-                return -1.0 / (4 * h * h);
+                return -1.0 / (4 * h * h); // коэф при u2_i-1,j-1
         }
     } 
-    else {
+    else { // -//- вторая - f2
         i -= (N - 1) * (N - 1);
         i_f = (i - 1) / (N - 1) + 1;
         j_f = (i - 1) % (N - 1) + 1;
-        
+
+        // -//- умножается на u1,
         if (j <= (N - 1) * (N - 1)) {
             i_u = (j - 1) / (N - 1) + 1;
             j_u = (j - 1) % (N - 1) + 1;
             
             if (i_f == i_u + 1 && j_f == j_u + 1)
-                return -1.0 / (4 * h * h);
+                return -1.0 / (4 * h * h); // коэф при u1_i+1,j+1
             if (i_f == i_u - 1 && j_f == j_u + 1)
-                return 1.0 / (4 * h * h);
+                return 1.0 / (4 * h * h); // коэф при u1_i-1,j+1
             if (i_f == i_u + 1 && j_f == j_u - 1)
-                return 1.0 / (4 * h * h);
+                return 1.0 / (4 * h * h); // коэф при u1_i+1,j-1
             if (i_f == i_u - 1 && j_f == j_u - 1)
-                return -1.0 / (4 * h * h);
+                return -1.0 / (4 * h * h); // коэф при u1_i-1,j-1
         }
-        else {
+        else { // иначе на u2
             j -= (N - 1) * (N - 1);
             i_u = (j - 1) / (N - 1) + 1;
             j_u = (j - 1) % (N - 1) + 1;
         
             if ((i_f == i_u + 1 || i_f == i_u - 1) && j_f == j_u)
-                return -1.0 / (h * h);
+                return -1.0 / (h * h); // коэф при u2_i,j; u2_i-1,j
             if (i_f == i_u && j_f == j_u)
-                return 6.0 / (h * h);
+                return 6.0 / (h * h); // коэф при u2_i,j
             if ((j_f == j_u + 1 || j_f == j_u - 1) && i_f == i_u)
-                return -2.0 / (h * h);
+                return -2.0 / (h * h); // коэф при u2_i,j+1; u2_i,j-1
         }
     }
     
     return 0;
 }
 
-double get_f_i(int i, int N, std::vector<double> &x, std::vector<double> &y) {
+// извлечение нужного элемента вектора fk, где k = 1,2
+double get_f_k(int i, int N, std::vector<double> &x, std::vector<double> &y) {
     if (i <= (N - 1) * (N - 1)) {
         return f1(x[(i - 1) / (N - 1) + 1], y[(i - 1) % (N - 1) + 1]);  
     } 

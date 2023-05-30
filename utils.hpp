@@ -18,4 +18,4 @@ double f1(double x, double y);
 double f2(double x, double y);
 
 double get_a_ij(int i, int j, int N, double h);
-double get_f_i(int i, int N, std::vector<double> &x, std::vector<double> &y);
+double get_f_k(int i, int N, std::vector<double> &x, std::vector<double> &y);
