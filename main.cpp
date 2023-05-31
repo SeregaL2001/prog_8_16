@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
     int count = 0;
     Col<double> u_richardson = Richardson(A, f, count);    
     Col<double> u_original(f_size, fill::zeros);
-    for (int i = 0; i < 2 * (N - 1) * (N - 1); i++) {
+    for (int i = 0; i < f_size; i++) {
         if (i < (N - 1) * (N - 1)) {
             u_original(i) = u1_arr[i];
         }
